@@ -16,7 +16,9 @@ def get_supported_embedding_model() -> str:
 
     try:
         from google import genai
-        client = genai.Client(api_key=GOOGLE_API_KEY)
+        import os
+        api_key_str = os.getenv("GOOGLE_API_KEY", "").strip().strip("'\"")
+        client = genai.Client(api_key=api_key_str)
         for model in client.models.list():
             if model.supported_actions and "embedContent" in model.supported_actions:
                 logging.info(f"Dynamically discovered supported embedding model: {model.name}")
@@ -33,10 +35,14 @@ def get_embeddings():
     if _GLOBAL_EMBEDDINGS is not None:
         return _GLOBAL_EMBEDDINGS
 
-    if not GOOGLE_API_KEY:
-        raise ValueError("Google API Key not found. Please set GOOGLE_API_KEY in your .env file.")
+    import os
+    api_key_str = os.getenv("GOOGLE_API_KEY")
+    if not api_key_str:
+        raise ValueError("Google API Key not found. Please set GOOGLE_API_KEY in your .env file or environment.")
+    api_key = api_key_str.strip().strip("'\"")
+    
     model_name = get_supported_embedding_model()
-    _GLOBAL_EMBEDDINGS = GoogleGenerativeAIEmbeddings(model=model_name, google_api_key=GOOGLE_API_KEY)
+    _GLOBAL_EMBEDDINGS = GoogleGenerativeAIEmbeddings(model=model_name, api_key=api_key)
     return _GLOBAL_EMBEDDINGS
 
 def save_vector_store(docs, session_id: str):
