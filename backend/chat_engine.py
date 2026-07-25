@@ -17,10 +17,11 @@ def init_llm():
         if not api_key_str:
             raise ValueError("Google API Key not found. Please set GOOGLE_API_KEY in your .env file or environment.")
         api_key = api_key_str.strip().strip("'\"")
+        os.environ["GOOGLE_API_KEY"] = api_key  # Ensure it is cleanly in the environment
         _GLOBAL_LLM = ChatGoogleGenerativeAI(
             model="gemini-2.5-flash", 
             temperature=0.7,
-            api_key=api_key
+            google_api_key=api_key
         )
     return _GLOBAL_LLM
 

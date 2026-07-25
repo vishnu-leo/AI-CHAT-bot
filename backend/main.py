@@ -68,13 +68,14 @@ def health_check():
     return {"status": "ok"}
 
 @app.post("/chat")
-def chat(request: ChatRequest):
+async def chat(request: ChatRequest):
     try:
         logging.info(f"Received chat request for session: {request.session_id}")
         if not request.messages:
             raise HTTPException(status_code=400, detail="Messages list cannot be empty")
             
-        response_text = get_chat_response(request.messages, request.session_id)
+        from backend.chat_engine import get_chat_response_async
+        response_text = await get_chat_response_async(request.messages, request.session_id)
         logging.info("Successfully generated response from Gemini.")
         return {"response": response_text}
     except Exception as e:

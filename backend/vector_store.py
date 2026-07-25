@@ -40,9 +40,10 @@ def get_embeddings():
     if not api_key_str:
         raise ValueError("Google API Key not found. Please set GOOGLE_API_KEY in your .env file or environment.")
     api_key = api_key_str.strip().strip("'\"")
+    os.environ["GOOGLE_API_KEY"] = api_key  # Cleanly set it in environ
     
     model_name = get_supported_embedding_model()
-    _GLOBAL_EMBEDDINGS = GoogleGenerativeAIEmbeddings(model=model_name, api_key=api_key)
+    _GLOBAL_EMBEDDINGS = GoogleGenerativeAIEmbeddings(model=model_name, google_api_key=api_key)
     return _GLOBAL_EMBEDDINGS
 
 def save_vector_store(docs, session_id: str):
