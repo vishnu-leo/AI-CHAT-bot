@@ -1,0 +1,24 @@
+# Environments
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# API keys
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary uploaded PDFs
+data/
+*.pdf
+
+# FAISS and Vectorstore files
+vectorstore/
+*.faiss
+*.pkl

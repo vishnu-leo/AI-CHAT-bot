@@ -1,0 +1,11 @@
+fastapi>=0.100.0
+uvicorn>=0.23.0
+python-multipart>=0.0.6
+streamlit>=1.26.0
+langchain>=0.1.0
+langchain-google-genai>=0.0.5
+langchain-community>=0.0.10
+faiss-cpu>=1.7.4
+pypdf2>=3.0.1
+python-dotenv>=1.0.0
+requests>=2.31.0
