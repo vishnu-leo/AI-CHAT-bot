@@ -1,11 +1,20 @@
 import streamlit as st
-import requests
 import json
 import os
+import shutil
+import sys
 from datetime import datetime
-from dotenv import load_dotenv
 
-load_dotenv()
+# Add the project root to sys.path to allow importing from utils
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# Import utils
+from utils.config import DATA_PATH
+from utils.document_processor import process_pdf, get_document_chunks
+from utils.vector_store import save_vector_store
+from utils.chat_engine import get_chat_response_stream
 
 # Configure Streamlit page
 st.set_page_config(
@@ -315,11 +324,7 @@ h1, h2, h3 {
 """
 st.markdown(custom_css, unsafe_allow_html=True)
 
-# Backend API URLs
-API_URL = os.getenv("FRONTEND_API_URL", "http://127.0.0.1:8000").rstrip('/')
-CHAT_URL = f"{API_URL}/chat"
-STREAM_URL = f"{API_URL}/chat_stream"
-UPLOAD_URL = f"{API_URL}/upload"
+# API URLs removed since we are running everything in Streamlit
 
 # Initialize Session State
 if "messages" not in st.session_state:
@@ -349,22 +354,31 @@ with st.sidebar:
         if st.button("Process Document", use_container_width=True):
             with st.spinner("Processing document..."):
                 try:
-                    files = {"file": (uploaded_file.name, uploaded_file, "application/pdf")}
-                    data = {"session_id": st.session_state.session_id}
+                    session_id = st.session_state.session_id
+                    file_path = os.path.join(DATA_PATH, f"{session_id}_{uploaded_file.name}")
                     
-                    response = requests.post(UPLOAD_URL, files=files, data=data)
-                    
-                    if response.status_code == 200:
+                    with open(file_path, "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+                        
+                    text = process_pdf(file_path)
+                    if not text.strip():
+                        st.error("Could not extract text from the PDF")
+                    else:
+                        chunks = get_document_chunks(text)
+                        save_vector_store(chunks, session_id)
+                        
                         st.session_state.pdf_uploaded = True
                         st.success("Document processed successfully! You can now ask questions about it.")
-                    else:
-                        st.error(f"Failed to process document: {response.text}")
+                    
+                    # Cleanup
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
                 except Exception as e:
-                    st.error(f"Error connecting to backend: {str(e)}")
+                    st.error(f"Error processing document: {str(e)}")
                     
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown("<h3 style='margin-bottom: 5px; font-size: 16px;'>About</h3>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #64748b; font-size: 13px;'>Powered by <b>LangChain</b>, <b>FastAPI</b>, <b>FAISS</b>, and <b>Google Gemini</b>.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #64748b; font-size: 13px;'>Powered by <b>LangChain</b>, <b>Streamlit</b>, <b>FAISS</b>, and <b>Google Gemini</b>.</p>", unsafe_allow_html=True)
 
 # Main Chat Header
 st.markdown("""
@@ -403,25 +417,22 @@ if prompt := st.chat_input("Type something..."):
     try:
         # Prepare payload
         backend_messages = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-10:]]
-        payload = {
-            "messages": backend_messages,
-            "session_id": st.session_state.session_id if st.session_state.pdf_uploaded else None
-        }
+        session_id = st.session_state.session_id if st.session_state.pdf_uploaded else None
         
-        response = requests.post(STREAM_URL, json=payload, stream=True)
+        # Get stream generator from chat engine
+        response_stream = get_chat_response_stream(backend_messages, session_id)
         
-        if response.status_code == 200:
-            placeholder.empty()
-            
-            ai_placeholder = st.empty()
-            assistant_response = ""
-            
-            for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
-                if chunk:
-                    assistant_response += chunk
-                    
-                    # Update placeholder dynamically
-                    html = f"""
+        placeholder.empty()
+        
+        ai_placeholder = st.empty()
+        assistant_response = ""
+        
+        for chunk in response_stream:
+            if chunk:
+                assistant_response += chunk
+                
+                # Update placeholder dynamically
+                html = f"""
 <div class="ai-message-row">
     <div class="ai-avatar"><img src="{AI_AVATAR}"></div>
     <div class="ai-message-bubble">
@@ -431,13 +442,13 @@ if prompt := st.chat_input("Type something..."):
     </div>
 </div>
 """
-                    ai_placeholder.markdown(html, unsafe_allow_html=True)
-            
-            resp_time = datetime.now().strftime("%I:%M %p")
-            st.session_state.messages.append({"role": "assistant", "content": assistant_response, "timestamp": resp_time})
-            
-            # Final render with timestamp
-            final_html = f"""
+                ai_placeholder.markdown(html, unsafe_allow_html=True)
+        
+        resp_time = datetime.now().strftime("%I:%M %p")
+        st.session_state.messages.append({"role": "assistant", "content": assistant_response, "timestamp": resp_time})
+        
+        # Final render with timestamp
+        final_html = f"""
 <div class="ai-message-row">
     <div class="ai-avatar"><img src="{AI_AVATAR}"></div>
     <div class="ai-message-bubble">
@@ -448,13 +459,10 @@ if prompt := st.chat_input("Type something..."):
     </div>
 </div>
 """
-            ai_placeholder.markdown(final_html, unsafe_allow_html=True)
-            
-        else:
-            placeholder.empty()
-            st.error(f"Backend error: {response.text}")
+        ai_placeholder.markdown(final_html, unsafe_allow_html=True)
+
     except Exception as e:
         placeholder.empty()
-        st.error(f"Error connecting to backend: {str(e)}. Make sure the FastAPI server is running.")
+        st.error(f"Error generating response: {str(e)}")
         
     st.rerun()

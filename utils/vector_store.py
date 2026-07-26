@@ -16,8 +16,7 @@ def get_supported_embedding_model() -> str:
 
     try:
         from google import genai
-        import os
-        api_key_str = os.getenv("GOOGLE_API_KEY", "").strip().strip("'\"")
+        api_key_str = GOOGLE_API_KEY
         client = genai.Client(api_key=api_key_str)
         for model in client.models.list():
             if model.supported_actions and "embedContent" in model.supported_actions:
@@ -35,11 +34,11 @@ def get_embeddings():
     if _GLOBAL_EMBEDDINGS is not None:
         return _GLOBAL_EMBEDDINGS
 
+    api_key = GOOGLE_API_KEY
+    if not api_key:
+        raise ValueError("Google API Key not found. Please set GOOGLE_API_KEY in your Streamlit secrets or .env file.")
+    
     import os
-    api_key_str = os.getenv("GOOGLE_API_KEY")
-    if not api_key_str:
-        raise ValueError("Google API Key not found. Please set GOOGLE_API_KEY in your .env file or environment.")
-    api_key = api_key_str.strip().strip("'\"")
     os.environ["GOOGLE_API_KEY"] = api_key  # Cleanly set it in environ
     
     model_name = get_supported_embedding_model()

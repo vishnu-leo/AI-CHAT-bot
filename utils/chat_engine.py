@@ -5,19 +5,20 @@ from langchain_classic.chains import create_retrieval_chain
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from utils.config import GOOGLE_API_KEY
-from backend.vector_store import load_vector_store
+from utils.vector_store import load_vector_store
 
 _GLOBAL_LLM = None
 
 def init_llm():
     global _GLOBAL_LLM
     if _GLOBAL_LLM is None:
+        api_key = GOOGLE_API_KEY
+        if not api_key:
+            raise ValueError("Google API Key not found. Please set GOOGLE_API_KEY in your Streamlit secrets or .env file.")
+        
         import os
-        api_key_str = os.getenv("GOOGLE_API_KEY")
-        if not api_key_str:
-            raise ValueError("Google API Key not found. Please set GOOGLE_API_KEY in your .env file or environment.")
-        api_key = api_key_str.strip().strip("'\"")
         os.environ["GOOGLE_API_KEY"] = api_key  # Ensure it is cleanly in the environment
+        
         _GLOBAL_LLM = ChatGoogleGenerativeAI(
             model="gemini-2.5-flash", 
             temperature=0.7,
@@ -31,7 +32,7 @@ def get_llm():
         return init_llm()
     return _GLOBAL_LLM
 
-async def get_chat_response_async(messages: list, session_id: str = None, t_recv: float = None):
+def get_chat_response(messages: list, session_id: str = None, t_recv: float = None):
     t_start = t_recv if t_recv else time.perf_counter()
     llm = get_llm()
 
@@ -71,7 +72,7 @@ async def get_chat_response_async(messages: list, session_id: str = None, t_recv
             question_answer_chain = create_stuff_documents_chain(llm, prompt)
             rag_chain = create_retrieval_chain(retriever, question_answer_chain)
 
-            response = await rag_chain.ainvoke({
+            response = rag_chain.invoke({
                 "input": latest_query,
                 "chat_history": history
             })
@@ -85,7 +86,7 @@ async def get_chat_response_async(messages: list, session_id: str = None, t_recv
                 "Handle greetings, casual conversations, and follow-up questions naturally."
             )
             full_prompt = [("system", system_prompt)] + formatted_messages
-            response = await llm.ainvoke(full_prompt)
+            response = llm.invoke(full_prompt)
             answer = response.content
 
         t_gemini_ms = (time.perf_counter() - t_gemini_start) * 1000.0
@@ -102,7 +103,7 @@ async def get_chat_response_async(messages: list, session_id: str = None, t_recv
         logging.error(f"Gemini API generation error: {str(e)}")
         raise e
 
-async def get_chat_response_stream_async(messages: list, session_id: str = None):
+def get_chat_response_stream(messages: list, session_id: str = None):
     llm = get_llm()
 
     # Limit to last 8 messages to reduce prompt overhead and network latency
@@ -138,7 +139,7 @@ async def get_chat_response_stream_async(messages: list, session_id: str = None)
             question_answer_chain = create_stuff_documents_chain(llm, prompt)
             rag_chain = create_retrieval_chain(retriever, question_answer_chain)
 
-            async for chunk in rag_chain.pick("answer").astream({
+            for chunk in rag_chain.pick("answer").stream({
                 "input": latest_query,
                 "chat_history": history
             }):
@@ -152,14 +153,9 @@ async def get_chat_response_stream_async(messages: list, session_id: str = None)
                 "Handle greetings, casual conversations, and follow-up questions naturally."
             )
             full_prompt = [("system", system_prompt)] + formatted_messages
-            async for chunk in llm.astream(full_prompt):
+            for chunk in llm.stream(full_prompt):
                 yield chunk.content
 
     except Exception as e:
         logging.error(f"Gemini API generation error: {str(e)}")
         raise e
-
-def get_chat_response(messages: list, session_id: str = None):
-    import asyncio
-    return asyncio.run(get_chat_response_async(messages, session_id))
-

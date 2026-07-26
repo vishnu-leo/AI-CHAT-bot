@@ -1,19 +1,18 @@
 # Smart AI Chatbot System
 
-A full-stack AI Chatbot application built with **Python**, **FastAPI**, **Streamlit**, **LangChain**, and **FAISS**. This assistant can hold natural conversations, remember context, and perform Retrieval-Augmented Generation (RAG) on uploaded PDF documents.
+A unified AI Chatbot application built with **Python**, **Streamlit**, **LangChain**, and **FAISS**. This assistant can hold natural conversations, remember context, and perform Retrieval-Augmented Generation (RAG) on uploaded PDF documents.
 
 ## Features
 - **General AI Chat**: Ask questions on science, tech, history, daily life, and more.
 - **PDF Q&A**: Upload PDF documents and interactively ask questions based on their content.
 - **Conversation Memory**: Remembers previous messages within the session.
 - **Modern UI**: Built with Streamlit, featuring chat history, timestamps, and loading indicators.
-- **Robust Backend**: Powered by FastAPI for scalable REST APIs.
+- **Unified Architecture**: Everything runs directly within Streamlit for easy deployment on Streamlit Community Cloud.
 - **Vector Search**: Uses FAISS for fast similarity search on documents.
 
 ## Project Structure
-- `backend/`: FastAPI application, LangChain logic, and FAISS integrations.
-- `frontend/`: Streamlit user interface.
-- `utils/`: Configuration and shared utilities.
+- `frontend/`: Streamlit user interface (`app.py`).
+- `utils/`: Configuration and shared modules (document processing, chat engine, vector store).
 - `data/`: Temporary storage for uploaded files (ignored in git).
 - `vectorstore/`: Persistent FAISS vector indexes (ignored in git).
 
@@ -41,38 +40,26 @@ A full-stack AI Chatbot application built with **Python**, **FastAPI**, **Stream
 
 ## Running Locally
 
-You need to run both the Backend (FastAPI) and Frontend (Streamlit) servers simultaneously.
-
-**1. Start the FastAPI Backend:**
-Open a terminal, activate your virtual environment, and run:
-```bash
-uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-**2. Start the Streamlit Frontend:**
-Open a **new** terminal, activate your virtual environment, and run:
+To run the application locally:
 ```bash
 streamlit run frontend/app.py
 ```
 The application will be accessible at `http://localhost:8501`.
 
-## Cloud Deployment
+## Cloud Deployment (Streamlit Community Cloud)
 
-This application is ready to be deployed to cloud platforms (like Render, Heroku, or AWS).
+This application is ready to be deployed to Streamlit Community Cloud.
 
-**Backend Deployment:**
-- Host the FastAPI app (the root directory).
-- Start command for the cloud service: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
-- Set environment variables in the cloud dashboard:
-  - `GOOGLE_API_KEY`: Your Gemini API key.
-  - `BACKEND_CORS_ORIGINS`: The URL of your deployed frontend (e.g., `https://my-frontend.com`).
-
-**Frontend Deployment (Streamlit Community Cloud or other):**
-- Deploy using the root directory.
-- Start command (if required): `streamlit run frontend/app.py`
-- Set environment variables:
-  - `FRONTEND_API_URL`: The URL of your deployed backend (e.g., `https://my-backend-api.com`).
+1. Push your repository to GitHub.
+2. Go to [share.streamlit.io](https://share.streamlit.io/) and create a new app.
+3. Select your repository, branch, and set the **Main file path** to `frontend/app.py`.
+4. Click on **Advanced settings** (or the **Secrets** section).
+5. Add your Google API Key to the Streamlit secrets:
+   ```toml
+   GOOGLE_API_KEY = "your_actual_api_key_here"
+   ```
+6. Click **Deploy!**
 
 ## Security
-- Your `GOOGLE_API_KEY` is completely isolated in the backend and never exposed to the frontend.
+- Make sure not to expose your `GOOGLE_API_KEY` in source code. Use Streamlit Secrets for cloud deployment and `.env` for local execution.
 - `.gitignore` ensures that sensitive files, API keys, cache folders, and local data are never pushed to GitHub.
