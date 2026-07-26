@@ -1,5 +1,4 @@
 import os
-import streamlit as st
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -11,18 +10,8 @@ for key in ["GOOGLE_APPLICATION_CREDENTIALS", "GOOGLE_APPLICATION_CREDENTIALS_JS
     os.environ.pop(key, None)
 
 def get_api_key():
-    key = None
-    # 1. Primary: Streamlit Secrets
-    try:
-        if "GOOGLE_API_KEY" in st.secrets:
-            key = st.secrets["GOOGLE_API_KEY"]
-    except Exception:
-        pass
-    
-    # 2. Fallback: Environment Variables (for local dev)
-    if not key:
-        key = os.getenv("GOOGLE_API_KEY")
-        
+    # Read strictly from environment (loaded via .env locally or injected by Streamlit Cloud)
+    key = os.getenv("GOOGLE_API_KEY")
     if key:
         return key.strip().strip("'\"")
     return None

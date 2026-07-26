@@ -1,28 +1,32 @@
 import logging
 import time
 import os
-import streamlit as st
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_classic.chains import create_retrieval_chain
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from utils.config import GOOGLE_API_KEY
 from utils.vector_store import load_vector_store
-@st.cache_resource(show_spinner=False)
+
+_GLOBAL_LLM = None
+
 def get_llm():
+    global _GLOBAL_LLM
+    if _GLOBAL_LLM is not None:
+        return _GLOBAL_LLM
+
     api_key = GOOGLE_API_KEY
     if not api_key:
-        st.error("GOOGLE_API_KEY is missing from Streamlit Secrets.")
-        st.stop()
+        raise ValueError("GOOGLE_API_KEY is missing from environment variables or .env file.")
     
     os.environ["GOOGLE_API_KEY"] = api_key  # Ensure it is cleanly in the environment
     
-    return ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash", 
+    _GLOBAL_LLM = ChatGoogleGenerativeAI(
+        model="gemini-3.5-flash", 
         temperature=0.7,
-        google_api_key=api_key,
-        credentials=None
+        google_api_key=api_key
     )
+    return _GLOBAL_LLM
 
 def get_chat_response(messages: list, session_id: str = None, t_recv: float = None):
     t_start = t_recv if t_recv else time.perf_counter()
@@ -79,7 +83,16 @@ def get_chat_response(messages: list, session_id: str = None, t_recv: float = No
             )
             full_prompt = [("system", system_prompt)] + formatted_messages
             response = llm.invoke(full_prompt)
-            answer = response.content
+            content = response.content
+            if isinstance(content, list):
+                answer = ""
+                for item in content:
+                    if isinstance(item, dict) and "text" in item:
+                        answer += item["text"]
+                    elif isinstance(item, str):
+                        answer += item
+            else:
+                answer = str(content)
 
         t_gemini_ms = (time.perf_counter() - t_gemini_start) * 1000.0
         t_total_ms = (time.perf_counter() - t_start) * 1000.0
@@ -146,7 +159,17 @@ def get_chat_response_stream(messages: list, session_id: str = None):
             )
             full_prompt = [("system", system_prompt)] + formatted_messages
             for chunk in llm.stream(full_prompt):
-                yield chunk.content
+                content = chunk.content
+                if isinstance(content, list):
+                    text = ""
+                    for item in content:
+                        if isinstance(item, dict) and "text" in item:
+                            text += item["text"]
+                        elif isinstance(item, str):
+                            text += item
+                    yield text
+                else:
+                    yield str(content)
 
     except Exception as e:
         logging.error(f"Gemini API generation error: {str(e)}")

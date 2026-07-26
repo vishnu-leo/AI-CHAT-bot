@@ -10,16 +10,9 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# Import utils
-from utils.config import DATA_PATH, GOOGLE_API_KEY
-from utils.document_processor import process_pdf, get_document_chunks
-from utils.vector_store import save_vector_store
-from utils.chat_engine import get_chat_response_stream
+import requests
 
-# Startup check for API Key
-if not GOOGLE_API_KEY:
-    st.error("GOOGLE_API_KEY is missing from Streamlit Secrets.")
-    st.stop()
+API_URL = "http://localhost:8000"
 
 # Configure Streamlit page
 st.set_page_config(
@@ -360,26 +353,20 @@ with st.sidebar:
             with st.spinner("Processing document..."):
                 try:
                     session_id = st.session_state.session_id
-                    file_path = os.path.join(DATA_PATH, f"{session_id}_{uploaded_file.name}")
                     
-                    with open(file_path, "wb") as f:
-                        f.write(uploaded_file.getbuffer())
-                        
-                    text = process_pdf(file_path)
-                    if not text.strip():
-                        st.error("Could not extract text from the PDF")
-                    else:
-                        chunks = get_document_chunks(text)
-                        save_vector_store(chunks, session_id)
-                        
+                    # Send to FastAPI backend
+                    files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/pdf")}
+                    data = {"session_id": session_id}
+                    
+                    response = requests.post(f"{API_URL}/upload", files=files, data=data)
+                    
+                    if response.status_code == 200:
                         st.session_state.pdf_uploaded = True
                         st.success("Document processed successfully! You can now ask questions about it.")
-                    
-                    # Cleanup
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
+                    else:
+                        st.error(f"Error processing document: {response.text}")
                 except Exception as e:
-                    st.error(f"Error processing document: {str(e)}")
+                    st.error(f"Error uploading document: {str(e)}")
                     
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown("<h3 style='margin-bottom: 5px; font-size: 16px;'>About</h3>", unsafe_allow_html=True)
@@ -421,18 +408,21 @@ if prompt := st.chat_input("Type something..."):
     
     try:
         # Prepare payload
-        backend_messages = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-10:]]
-        session_id = st.session_state.session_id if st.session_state.pdf_uploaded else None
+        payload = {
+            "messages": st.session_state.messages[-10:],
+            "session_id": st.session_state.session_id if st.session_state.pdf_uploaded else None
+        }
         
-        # Get stream generator from chat engine
-        response_stream = get_chat_response_stream(backend_messages, session_id)
+        # Call FastAPI stream endpoint
+        response = requests.post(f"{API_URL}/chat", json=payload, stream=True)
+        response.raise_for_status()
         
         placeholder.empty()
         
         ai_placeholder = st.empty()
         assistant_response = ""
         
-        for chunk in response_stream:
+        for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
             if chunk:
                 assistant_response += chunk
                 
