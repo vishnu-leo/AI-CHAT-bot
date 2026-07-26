@@ -1,6 +1,7 @@
 import logging
 import time
 import os
+import streamlit as st
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_classic.chains import create_retrieval_chain
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
@@ -8,25 +9,20 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from utils.config import GOOGLE_API_KEY
 from utils.vector_store import load_vector_store
 
-_GLOBAL_LLM = None
-
+@st.cache_resource(show_spinner=False)
 def get_llm():
-    global _GLOBAL_LLM
-    if _GLOBAL_LLM is not None:
-        return _GLOBAL_LLM
-
     api_key = GOOGLE_API_KEY
     if not api_key:
-        raise ValueError("GOOGLE_API_KEY is missing from environment variables or .env file.")
+        st.error("GOOGLE_API_KEY is missing from Streamlit Secrets.")
+        st.stop()
     
     os.environ["GOOGLE_API_KEY"] = api_key  # Ensure it is cleanly in the environment
     
-    _GLOBAL_LLM = ChatGoogleGenerativeAI(
+    return ChatGoogleGenerativeAI(
         model="gemini-3.5-flash", 
         temperature=0.7,
         google_api_key=api_key
     )
-    return _GLOBAL_LLM
 
 def get_chat_response(messages: list, session_id: str = None, t_recv: float = None):
     t_start = t_recv if t_recv else time.perf_counter()
