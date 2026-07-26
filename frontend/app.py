@@ -464,5 +464,3 @@ if prompt := st.chat_input("Type something..."):
     except Exception as e:
         placeholder.empty()
         st.error(f"Error generating response: {str(e)}")
-        
-    st.rerun()

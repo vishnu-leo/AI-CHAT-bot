@@ -1,49 +1,25 @@
 import os
 import logging
+import streamlit as st
 # pyrefly: ignore [missing-import]
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from utils.config import VECTOR_STORE_PATH, GOOGLE_API_KEY
 
-_CACHED_EMBEDDING_MODEL = None
-_GLOBAL_EMBEDDINGS = None
 _FAISS_CACHE = {}
 
-def get_supported_embedding_model() -> str:
-    global _CACHED_EMBEDDING_MODEL
-    if _CACHED_EMBEDDING_MODEL:
-        return _CACHED_EMBEDDING_MODEL
-
-    try:
-        from google import genai
-        api_key_str = GOOGLE_API_KEY
-        client = genai.Client(api_key=api_key_str)
-        for model in client.models.list():
-            if model.supported_actions and "embedContent" in model.supported_actions:
-                logging.info(f"Dynamically discovered supported embedding model: {model.name}")
-                _CACHED_EMBEDDING_MODEL = model.name
-                return _CACHED_EMBEDDING_MODEL
-    except Exception as e:
-        logging.warning(f"Could not dynamically list models ({str(e)}), falling back to default supported model.")
-
-    _CACHED_EMBEDDING_MODEL = "models/gemini-embedding-001"
-    return _CACHED_EMBEDDING_MODEL
-
+@st.cache_resource(show_spinner=False)
 def get_embeddings():
-    global _GLOBAL_EMBEDDINGS
-    if _GLOBAL_EMBEDDINGS is not None:
-        return _GLOBAL_EMBEDDINGS
-
     api_key = GOOGLE_API_KEY
     if not api_key:
-        raise ValueError("Google API Key not found. Please set GOOGLE_API_KEY in your Streamlit secrets or .env file.")
+        st.error("Google API Key not found. Please set GOOGLE_API_KEY in your Streamlit secrets or .env file.")
+        st.stop()
     
-    import os
     os.environ["GOOGLE_API_KEY"] = api_key  # Cleanly set it in environ
     
-    model_name = get_supported_embedding_model()
-    _GLOBAL_EMBEDDINGS = GoogleGenerativeAIEmbeddings(model=model_name, google_api_key=api_key)
-    return _GLOBAL_EMBEDDINGS
+    # Use the currently supported and standard embedding model for Gemini
+    model_name = "models/text-embedding-004"
+    return GoogleGenerativeAIEmbeddings(model=model_name, google_api_key=api_key)
 
 def save_vector_store(docs, session_id: str):
     """Creates a vector store from documents and saves it locally and in-memory cache."""
@@ -56,6 +32,9 @@ def save_vector_store(docs, session_id: str):
 
 def load_vector_store(session_id: str):
     """Loads a vector store from in-memory cache or disk."""
+    if not session_id:
+        return None
+        
     if session_id in _FAISS_CACHE:
         return _FAISS_CACHE[session_id]
 
