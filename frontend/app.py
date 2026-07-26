@@ -11,10 +11,15 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Import utils
-from utils.config import DATA_PATH
+from utils.config import DATA_PATH, GOOGLE_API_KEY
 from utils.document_processor import process_pdf, get_document_chunks
 from utils.vector_store import save_vector_store
 from utils.chat_engine import get_chat_response_stream
+
+# Startup check for API Key
+if not GOOGLE_API_KEY:
+    st.error("GOOGLE_API_KEY is missing from Streamlit Secrets.")
+    st.stop()
 
 # Configure Streamlit page
 st.set_page_config(

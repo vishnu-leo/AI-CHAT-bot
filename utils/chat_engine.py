@@ -12,7 +12,7 @@ from utils.vector_store import load_vector_store
 def get_llm():
     api_key = GOOGLE_API_KEY
     if not api_key:
-        st.error("Google API Key not found. Please set GOOGLE_API_KEY in your Streamlit secrets or .env file.")
+        st.error("GOOGLE_API_KEY is missing from Streamlit Secrets.")
         st.stop()
     
     os.environ["GOOGLE_API_KEY"] = api_key  # Ensure it is cleanly in the environment
@@ -20,7 +20,8 @@ def get_llm():
     return ChatGoogleGenerativeAI(
         model="gemini-2.5-flash", 
         temperature=0.7,
-        google_api_key=api_key
+        google_api_key=api_key,
+        credentials=None
     )
 
 def get_chat_response(messages: list, session_id: str = None, t_recv: float = None):

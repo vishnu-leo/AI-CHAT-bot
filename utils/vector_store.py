@@ -12,14 +12,18 @@ _FAISS_CACHE = {}
 def get_embeddings():
     api_key = GOOGLE_API_KEY
     if not api_key:
-        st.error("Google API Key not found. Please set GOOGLE_API_KEY in your Streamlit secrets or .env file.")
+        st.error("GOOGLE_API_KEY is missing from Streamlit Secrets.")
         st.stop()
     
     os.environ["GOOGLE_API_KEY"] = api_key  # Cleanly set it in environ
     
     # Use the currently supported and standard embedding model for Gemini
     model_name = "models/text-embedding-004"
-    return GoogleGenerativeAIEmbeddings(model=model_name, google_api_key=api_key)
+    return GoogleGenerativeAIEmbeddings(
+        model=model_name, 
+        google_api_key=api_key,
+        credentials=None
+    )
 
 def save_vector_store(docs, session_id: str):
     """Creates a vector store from documents and saves it locally and in-memory cache."""

@@ -5,17 +5,21 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+# Forcefully disable Google Cloud OAuth Application Default Credentials (ADC)
+# This ensures that ONLY the API key is used, preventing ACCESS_TOKEN_TYPE_UNSUPPORTED errors.
+for key in ["GOOGLE_APPLICATION_CREDENTIALS", "GOOGLE_APPLICATION_CREDENTIALS_JSON", "GOOGLE_CLOUD_PROJECT", "GCP_PROJECT", "GCLOUD_PROJECT"]:
+    os.environ.pop(key, None)
+
 def get_api_key():
     key = None
-    # Try getting from Streamlit secrets first (for Streamlit Community Cloud)
+    # 1. Primary: Streamlit Secrets
     try:
-        # Check if st.secrets is available without raising an exception if empty or unset
         if "GOOGLE_API_KEY" in st.secrets:
             key = st.secrets["GOOGLE_API_KEY"]
     except Exception:
         pass
     
-    # Fallback to local environment variables
+    # 2. Fallback: Environment Variables (for local dev)
     if not key:
         key = os.getenv("GOOGLE_API_KEY")
         
